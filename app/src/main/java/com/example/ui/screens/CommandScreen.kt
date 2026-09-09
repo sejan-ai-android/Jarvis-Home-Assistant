@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,12 +26,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeMute
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.VolumeMute
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -56,6 +60,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.audio.ConversationLanguage
 import com.example.data.model.ChatMessage
 import com.example.data.model.MessageSender
 import com.example.ui.JarvisViewModel
@@ -86,6 +91,8 @@ fun CommandScreen(
     val isTtsMuted by viewModel.isTtsMuted.collectAsStateWithLifecycle()
     val isAuthenticated by viewModel.isBiometricallyAuthenticated.collectAsStateWithLifecycle()
     val speechRms by viewModel.speechRmsLevel.collectAsStateWithLifecycle()
+    val selectedLanguage by viewModel.selectedLanguage.collectAsStateWithLifecycle()
+    val isLiveAudioActive by viewModel.isLiveAudioConversation.collectAsStateWithLifecycle()
 
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
@@ -98,11 +105,14 @@ fun CommandScreen(
 
     val quickCommands = listOf(
         "Status report",
+        "কেমন আছেন জারভিস?",
+        "ল্যাবের লাইট অন করো",
+        "আজকের শিডিউল কেমন?",
         "Optimize today's schedule",
-        "Engage lab arc lights",
-        "Check urgent emails",
+        "জরুরি ইমেইল চেক করো",
+        "প্রজেক্ট আপডেট দিন",
         "Mark 85 flight telemetry",
-        "Lock terminal biometrics"
+        "বায়োমেট্রিক সিকিউরিটি চেক"
     )
 
     Column(
@@ -115,8 +125,8 @@ fun CommandScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("reactor_hud_card"),
-            borderColor = if (!isAuthenticated) NeonCrimson else CyberCyan.copy(alpha = 0.4f),
-            glowColor = if (!isAuthenticated) NeonCrimson.copy(alpha = 0.5f) else CyberCyan.copy(alpha = 0.3f)
+            borderColor = if (!isAuthenticated) NeonCrimson else if (isLiveAudioActive) NeonEmerald else CyberCyan.copy(alpha = 0.4f),
+            glowColor = if (!isAuthenticated) NeonCrimson.copy(alpha = 0.5f) else if (isLiveAudioActive) NeonEmerald.copy(alpha = 0.4f) else CyberCyan.copy(alpha = 0.3f)
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -129,8 +139,8 @@ fun CommandScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     HudStatusPill(
-                        text = if (isAuthenticated) "SYSTEMS NOMINAL" else "SECURITY LOCKED",
-                        statusColor = if (isAuthenticated) NeonEmerald else NeonCrimson
+                        text = if (!isAuthenticated) "SECURITY LOCKED" else if (isLiveAudioActive) "LIVE AUDIO // সক্রিয়" else "SYSTEMS NOMINAL",
+                        statusColor = if (!isAuthenticated) NeonCrimson else if (isLiveAudioActive) NeonEmerald else CyberCyan
                     )
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -139,7 +149,7 @@ fun CommandScreen(
                             modifier = Modifier.size(36.dp)
                         ) {
                             Icon(
-                                imageVector = if (isTtsMuted) Icons.Default.VolumeMute else Icons.Default.VolumeUp,
+                                imageVector = if (isTtsMuted) Icons.AutoMirrored.Filled.VolumeMute else Icons.AutoMirrored.Filled.VolumeUp,
                                 contentDescription = "Toggle voice audio",
                                 tint = if (isTtsMuted) HudTextMuted else CyberCyan
                             )
@@ -160,45 +170,137 @@ fun CommandScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 // Interactive Arc Reactor Core
                 ArcReactorVisualizer(
-                    size = 140.dp,
+                    size = 130.dp,
                     isSpeaking = isSpeaking,
                     isListening = isListening,
                     isLocked = !isAuthenticated,
                     audioLevel = speechRms
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 // Real-time Audio Frequency Waveform
                 AudioWaveformBar(
-                    isAnimating = isSpeaking || isListening || isProcessingAi,
-                    color = if (!isAuthenticated) NeonCrimson else if (isListening) HologramGold else CyberCyan
+                    isAnimating = isSpeaking || isListening || isProcessingAi || isLiveAudioActive,
+                    color = if (!isAuthenticated) NeonCrimson else if (isLiveAudioActive) NeonEmerald else if (isListening) HologramGold else CyberCyan
                 )
 
                 Text(
                     text = when {
                         isProcessingAi -> "JARVIS // PROCESSING QUANTUM SUB-ROUTINES..."
-                        isListening -> "JARVIS // LISTENING FOR VOICE INPUT..."
-                        isSpeaking -> "JARVIS // AUDIO SYNTHESIS ACTIVE"
+                        isListening -> "JARVIS // LISTENING... (বলুন, শুনছি...)"
+                        isSpeaking -> "JARVIS // AUDIO SYNTHESIS ACTIVE (কথা বলছি...)"
+                        isLiveAudioActive -> "LIVE AUDIO MODE // SPEAK IN BANGLA OR ENGLISH (অডিও কথোপকথন সক্রিয়)"
                         !isAuthenticated -> "RESTRICTED // VOICE BIOMETRIC AUTHENTICATION REQUIRED"
-                        else -> "JARVIS // STANDING BY FOR COMMANDS"
+                        else -> "JARVIS // STANDING BY (বাংলা অথবা ইংরেজিতে কথা বলুন)"
                     },
-                    color = if (!isAuthenticated) NeonCrimson else if (isListening) HologramGold else HudTextCyan,
+                    color = if (!isAuthenticated) NeonCrimson else if (isLiveAudioActive) NeonEmerald else if (isListening) HologramGold else HudTextCyan,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
-                    letterSpacing = 1.2.sp
+                    letterSpacing = 1.1.sp
                 )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Hands-Free Live Audio Conversation Toggle Button
+                Button(
+                    onClick = { viewModel.toggleLiveAudioConversation() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp)
+                        .testTag("live_audio_toggle_button"),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isLiveAudioActive) NeonEmerald.copy(alpha = 0.25f) else CyberCyan.copy(alpha = 0.15f),
+                        contentColor = if (isLiveAudioActive) NeonEmerald else CyberCyan
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (isLiveAudioActive) NeonEmerald else CyberCyan.copy(alpha = 0.6f)
+                    )
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isLiveAudioActive) Icons.Default.GraphicEq else Icons.Default.Mic,
+                            contentDescription = "Live voice conversation",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = if (isLiveAudioActive) "LIVE AUDIO ACTIVE // TAP TO PAUSE" else "START LIVE AUDIO CONVERSATION (বাংলা / EN)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 0.8.sp
+                        )
+                    }
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        // Quick Command Action Chips
+        // Language Mode Selector Chips
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "LANGUAGE // ভাষা:",
+                color = HudTextMuted,
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ConversationLanguage.entries.forEach { lang ->
+                    val isSelected = selectedLanguage == lang
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { viewModel.setConversationLanguage(lang) },
+                        label = {
+                            Text(
+                                text = when (lang) {
+                                    ConversationLanguage.AUTO -> "Auto (বাংলা/EN)"
+                                    ConversationLanguage.BANGLA -> "বাংলা"
+                                    ConversationLanguage.ENGLISH -> "English"
+                                },
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = if (isSelected) HologramGold.copy(alpha = 0.2f) else TitaniumSurface,
+                            labelColor = if (isSelected) HologramGold else HudTextSecondary,
+                            selectedContainerColor = HologramGold.copy(alpha = 0.25f),
+                            selectedLabelColor = HologramGold
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = isSelected,
+                            borderColor = if (isSelected) HologramGold else CyberBorder.copy(alpha = 0.5f)
+                        ),
+                        modifier = Modifier.height(28.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Quick Command Action Chips (Bilingual)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -213,7 +315,7 @@ fun CommandScreen(
                         Text(
                             text = cmd,
                             color = HudTextPrimary,
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace
                         )
                     },
@@ -226,12 +328,12 @@ fun CommandScreen(
                         selected = false,
                         borderColor = CyberBorder
                     ),
-                    modifier = Modifier.height(32.dp)
+                    modifier = Modifier.height(30.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         // Conversation History Stream
         LazyColumn(
@@ -239,24 +341,25 @@ fun CommandScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(messages, key = { it.id }) { msg ->
-                ChatMessageItem(message = msg)
+            items(messages) { message ->
+                ChatMessageItem(message = message)
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        // Voice & Text Input Bar
+        // Bottom Input Row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(TitaniumSurface, RoundedCornerShape(24.dp))
+                .clip(RoundedCornerShape(12.dp))
+                .background(TitaniumSurface)
+                .border(0.8.dp, CyberBorder, RoundedCornerShape(12.dp))
                 .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Voice Mic Button
             IconButton(
                 onClick = {
                     if (isListening) {
@@ -273,7 +376,7 @@ fun CommandScreen(
             ) {
                 Icon(
                     imageVector = if (isListening) Icons.Default.MicOff else Icons.Default.Mic,
-                    contentDescription = "Voice speech input",
+                    contentDescription = "Voice speech input in Bangla or English",
                     tint = if (isListening) HologramGold else CyberCyan
                 )
             }
@@ -288,9 +391,9 @@ fun CommandScreen(
                     .testTag("command_input_field"),
                 placeholder = {
                     Text(
-                        "Command Jarvis...",
+                        if (selectedLanguage == ConversationLanguage.BANGLA) "জারভিসকে কমান্ড দিন..." else "Command Jarvis in English or বাংলা...",
                         color = HudTextMuted,
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 },
@@ -359,58 +462,76 @@ fun ChatMessageItem(message: ChatMessage) {
             Text(
                 text = if (isUser) "COMMAND // USER" else "J.A.R.V.I.S.",
                 color = if (isUser) HologramGold else CyberCyan,
-                fontSize = 11.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                letterSpacing = 1.sp
+            )
+            Text(
+                text = "• ${message.formattedTimestamp}",
+                color = HudTextMuted,
+                fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace
             )
         }
 
         Box(
             modifier = Modifier
-                .fillMaxWidth(if (isUser) 0.85f else 0.95f)
-                .clip(RoundedCornerShape(if (isUser) 14.dp else 12.dp))
-                .background(if (isUser) TitaniumSurface else Color(0xFF0F1E32))
-                .padding(12.dp)
+                .clip(
+                    RoundedCornerShape(
+                        topStart = 12.dp,
+                        topEnd = 12.dp,
+                        bottomStart = if (isUser) 12.dp else 2.dp,
+                        bottomEnd = if (isUser) 2.dp else 12.dp
+                    )
+                )
+                .background(
+                    if (isUser) CyberCyan.copy(alpha = 0.12f) else TitaniumSurface
+                )
+                .border(
+                    0.8.dp,
+                    if (isUser) CyberCyan.copy(alpha = 0.4f) else CyberBorder.copy(alpha = 0.6f),
+                    RoundedCornerShape(
+                        topStart = 12.dp,
+                        topEnd = 12.dp,
+                        bottomStart = if (isUser) 12.dp else 2.dp,
+                        bottomEnd = if (isUser) 2.dp else 12.dp
+                    )
+                )
+                .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
             Column {
                 Text(
                     text = message.text,
                     color = HudTextPrimary,
                     fontSize = 13.sp,
-                    lineHeight = 19.sp
+                    lineHeight = 19.sp,
+                    fontFamily = FontFamily.SansSerif
                 )
 
-                if (message.actionType != null || message.actionSummary != null) {
+                if (message.actionSummary != null) {
                     Spacer(modifier = Modifier.height(6.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(CyberCyan.copy(alpha = 0.1f))
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
                     ) {
-                        message.actionType?.let {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(CyberCyan.copy(alpha = 0.15f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = it,
-                                    color = CyberCyan,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                            }
-                        }
-
-                        message.actionSummary?.let {
-                            Text(
-                                text = it,
-                                color = HudTextSecondary,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(NeonEmerald)
+                        )
+                        Text(
+                            text = message.actionSummary,
+                            color = HudTextCyan,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
                     }
                 }
             }

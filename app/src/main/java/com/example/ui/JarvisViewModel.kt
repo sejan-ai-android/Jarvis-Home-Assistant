@@ -3,6 +3,7 @@ package com.example.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.audio.ConversationLanguage
 import com.example.data.audio.SpeechManager
 import com.example.data.local.JarvisDatabase
 import com.example.data.model.BiometricAuthResult
@@ -22,6 +23,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 enum class HudTab {
@@ -112,6 +115,10 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
     val isSpeaking: StateFlow<Boolean> = speechManager.isSpeaking
     val isListening: StateFlow<Boolean> = speechManager.isListening
     val speechRmsLevel: StateFlow<Float> = speechManager.speechRmsLevel
+    val selectedLanguage: StateFlow<ConversationLanguage> = speechManager.selectedLanguage
+
+    private val _isLiveAudioConversation = MutableStateFlow(false)
+    val isLiveAudioConversation: StateFlow<Boolean> = _isLiveAudioConversation.asStateFlow()
 
     fun selectTab(tab: HudTab) {
         _activeTab.value = tab
@@ -214,7 +221,16 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
                 _messages.value = _messages.value + jarvisMsg
 
                 if (autoSpeak && !_isTtsMuted.value) {
-                    speechManager.speak(responseText)
+                    speechManager.speak(responseText) {
+                        if (_isLiveAudioConversation.value) {
+                            viewModelScope.launch(Dispatchers.Main) {
+                                delay(600)
+                                if (_isLiveAudioConversation.value && !speechManager.isSpeaking.value) {
+                                    startVoiceListening()
+                                }
+                            }
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 val errorMsg = ChatMessage(
@@ -228,14 +244,37 @@ class JarvisViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun setConversationLanguage(language: ConversationLanguage) {
+        speechManager.setLanguage(language)
+    }
+
+    fun toggleLiveAudioConversation() {
+        val newState = !_isLiveAudioConversation.value
+        _isLiveAudioConversation.value = newState
+        if (newState) {
+            speechManager.stopSpeaking()
+            startVoiceListening()
+        } else {
+            speechManager.stopListening()
+            speechManager.stopSpeaking()
+        }
+    }
+
     fun startVoiceListening() {
         speechManager.startListening(
+            language = speechManager.selectedLanguage.value,
             onResult = { spokenText ->
                 sendUserMessage(spokenText, autoSpeak = true)
             },
             onError = { errorText ->
-                // If microphone hardware speech recognition is not present, provide intuitive fallback
-                sendUserMessage("Status report and smart home check", autoSpeak = true)
+                if (_isLiveAudioConversation.value) {
+                    viewModelScope.launch(Dispatchers.Main) {
+                        delay(1500)
+                        if (_isLiveAudioConversation.value && !speechManager.isSpeaking.value && !speechManager.isListening.value) {
+                            startVoiceListening()
+                        }
+                    }
+                }
             }
         )
     }

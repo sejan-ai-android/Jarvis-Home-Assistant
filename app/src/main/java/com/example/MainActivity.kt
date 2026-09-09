@@ -24,15 +24,17 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.VolumeMute
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.FolderSpecial
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.VolumeMute
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,9 +45,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import com.example.data.audio.ConversationLanguage
+import com.example.ui.components.ApkExportDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -100,6 +107,10 @@ fun JarvisApp(viewModel: JarvisViewModel) {
     val isListening by viewModel.isListening.collectAsStateWithLifecycle()
     val isMuted by viewModel.isTtsMuted.collectAsStateWithLifecycle()
     val isAuthenticated by viewModel.isBiometricallyAuthenticated.collectAsStateWithLifecycle()
+    val selectedLanguage by viewModel.selectedLanguage.collectAsStateWithLifecycle()
+    val isLiveAudioActive by viewModel.isLiveAudioConversation.collectAsStateWithLifecycle()
+
+    var showExportDialog by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -148,16 +159,66 @@ fun JarvisApp(viewModel: JarvisViewModel) {
                     }
                 },
                 actions = {
-                    if (isSpeaking) {
+                    // Live Audio Conversation indicator
+                    if (isLiveAudioActive) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(NeonEmerald.copy(alpha = 0.2f))
+                                .border(0.8.dp, NeonEmerald, RoundedCornerShape(4.dp))
+                                .padding(horizontal = 6.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = "LIVE AUDIO",
+                                color = NeonEmerald,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    } else if (isSpeaking) {
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(4.dp))
                                 .background(CyberCyan.copy(alpha = 0.2f))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                .padding(horizontal = 6.dp, vertical = 3.dp)
                         ) {
                             Text(
                                 text = "VOICE ACTIVE",
                                 color = CyberCyan,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+
+                    // Interactive Language Toggle Button (Auto -> Bangla -> English)
+                    IconButton(
+                        onClick = {
+                            val nextLang = when (selectedLanguage) {
+                                ConversationLanguage.AUTO -> ConversationLanguage.BANGLA
+                                ConversationLanguage.BANGLA -> ConversationLanguage.ENGLISH
+                                ConversationLanguage.ENGLISH -> ConversationLanguage.AUTO
+                            }
+                            viewModel.setConversationLanguage(nextLang)
+                        },
+                        modifier = Modifier.testTag("language_toggle_button")
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(HologramGold.copy(alpha = 0.15f))
+                                .border(0.6.dp, HologramGold.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = when (selectedLanguage) {
+                                    ConversationLanguage.AUTO -> "AUTO"
+                                    ConversationLanguage.BANGLA -> "বাংলা"
+                                    ConversationLanguage.ENGLISH -> "EN"
+                                },
+                                color = HologramGold,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
@@ -170,9 +231,21 @@ fun JarvisApp(viewModel: JarvisViewModel) {
                         modifier = Modifier.testTag("app_mute_button")
                     ) {
                         Icon(
-                            imageVector = if (isMuted) Icons.Default.VolumeMute else Icons.Default.VolumeUp,
+                            imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeMute else Icons.AutoMirrored.Filled.VolumeUp,
                             contentDescription = "Toggle Speech Voice",
                             tint = if (isMuted) HudTextMuted else CyberCyan
+                        )
+                    }
+
+                    // Export / Download APK Button
+                    IconButton(
+                        onClick = { showExportDialog = true },
+                        modifier = Modifier.testTag("export_apk_menu_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = "Export APK Package",
+                            tint = HologramGold
                         )
                     }
                 },
@@ -191,7 +264,7 @@ fun JarvisApp(viewModel: JarvisViewModel) {
                 NavigationBarItem(
                     selected = activeTab == HudTab.COMMAND,
                     onClick = { viewModel.selectTab(HudTab.COMMAND) },
-                    icon = { Icon(Icons.Default.Chat, contentDescription = "Command HUD") },
+                    icon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Command HUD") },
                     label = { Text("Command", fontSize = 10.sp, fontFamily = FontFamily.Monospace) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = CyberCyan,
@@ -277,6 +350,10 @@ fun JarvisApp(viewModel: JarvisViewModel) {
                 HudTab.PROJECTS_EMAILS -> ProjectsEmailsScreen(viewModel = viewModel)
                 HudTab.BIOMETRICS -> BiometricsScreen(viewModel = viewModel)
             }
+        }
+
+        if (showExportDialog) {
+            ApkExportDialog(onDismissRequest = { showExportDialog = false })
         }
     }
 }

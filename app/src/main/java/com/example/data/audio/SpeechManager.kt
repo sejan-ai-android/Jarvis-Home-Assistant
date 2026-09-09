@@ -13,6 +13,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
 
+enum class ConversationLanguage(val displayName: String, val tag: String) {
+    AUTO("Auto (EN / বাংলা)", "auto"),
+    BANGLA("বাংলা (Bangla)", "bn-BD"),
+    ENGLISH("English (UK/US)", "en-US")
+}
+
 class SpeechManager(private val context: Context) {
 
     private var tts: TextToSpeech? = null
@@ -28,8 +34,17 @@ class SpeechManager(private val context: Context) {
     private val _speechRmsLevel = MutableStateFlow(0f)
     val speechRmsLevel: StateFlow<Float> = _speechRmsLevel.asStateFlow()
 
+    private val _selectedLanguage = MutableStateFlow(ConversationLanguage.AUTO)
+    val selectedLanguage: StateFlow<ConversationLanguage> = _selectedLanguage.asStateFlow()
+
+    private var onSpeechDoneCallback: (() -> Unit)? = null
+
     init {
         initTts()
+    }
+
+    fun setLanguage(language: ConversationLanguage) {
+        _selectedLanguage.value = language
     }
 
     private fun initTts() {
@@ -37,12 +52,12 @@ class SpeechManager(private val context: Context) {
             if (status == TextToSpeech.SUCCESS) {
                 isTtsInitialized = true
                 tts?.let { engine ->
-                    // Set English locale with crisp JARVIS pitch and rate
+                    // Default to English locale with crisp JARVIS pitch and rate
                     val result = engine.setLanguage(Locale.UK)
                     if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                         engine.setLanguage(Locale.US)
                     }
-                    engine.setPitch(0.92f) // Refined deep assistant tone
+                    engine.setPitch(0.92f)
                     engine.setSpeechRate(1.02f)
 
                     engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
@@ -52,11 +67,17 @@ class SpeechManager(private val context: Context) {
 
                         override fun onDone(utteranceId: String?) {
                             _isSpeaking.value = false
+                            val callback = onSpeechDoneCallback
+                            onSpeechDoneCallback = null
+                            callback?.invoke()
                         }
 
                         @Deprecated("Deprecated in Java")
                         override fun onError(utteranceId: String?) {
                             _isSpeaking.value = false
+                            val callback = onSpeechDoneCallback
+                            onSpeechDoneCallback = null
+                            callback?.invoke()
                         }
                     })
                 }
@@ -64,22 +85,57 @@ class SpeechManager(private val context: Context) {
         }
     }
 
-    fun speak(text: String) {
+    /**
+     * Speaks the text using appropriate voice modulation and language engine (Bangla or English).
+     * Automatically identifies Bengali characters and switches TTS engine locale.
+     */
+    fun speak(text: String, onDone: (() -> Unit)? = null) {
         if (!isTtsInitialized || tts == null) {
             initTts()
         }
+
+        onSpeechDoneCallback = onDone
         _isSpeaking.value = true
-        val params = Bundle()
-        params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "JARVIS_SPEECH_${System.currentTimeMillis()}")
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "JARVIS_SPEECH")
+
+        tts?.let { engine ->
+            val hasBengali = text.any { it in '\u0980'..'\u09FF' }
+            if (hasBengali || _selectedLanguage.value == ConversationLanguage.BANGLA) {
+                // Configure Bengali TTS
+                val bnLocale = Locale("bn", "BD")
+                val res = engine.setLanguage(bnLocale)
+                if (res == TextToSpeech.LANG_MISSING_DATA || res == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    val fallbackBn = Locale("bn", "IN")
+                    val resIn = engine.setLanguage(fallbackBn)
+                    if (resIn == TextToSpeech.LANG_MISSING_DATA || resIn == TextToSpeech.LANG_NOT_SUPPORTED) {
+                        engine.setLanguage(Locale("bn"))
+                    }
+                }
+                engine.setPitch(1.0f)
+                engine.setSpeechRate(0.98f)
+            } else {
+                // Configure British JARVIS English TTS
+                val res = engine.setLanguage(Locale.UK)
+                if (res == TextToSpeech.LANG_MISSING_DATA || res == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    engine.setLanguage(Locale.US)
+                }
+                engine.setPitch(0.92f)
+                engine.setSpeechRate(1.02f)
+            }
+
+            val params = Bundle()
+            params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "JARVIS_SPEECH_${System.currentTimeMillis()}")
+            engine.speak(text, TextToSpeech.QUEUE_FLUSH, params, "JARVIS_SPEECH")
+        }
     }
 
     fun stopSpeaking() {
         tts?.stop()
         _isSpeaking.value = false
+        onSpeechDoneCallback = null
     }
 
     fun startListening(
+        language: ConversationLanguage = _selectedLanguage.value,
         onResult: (String) -> Unit,
         onError: (String) -> Unit
     ) {
@@ -138,8 +194,26 @@ class SpeechManager(private val context: Context) {
 
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+
+                when (language) {
+                    ConversationLanguage.BANGLA -> {
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "bn-BD")
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "bn-BD")
+                        putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf("bn-IN", "bn"))
+                    }
+                    ConversationLanguage.ENGLISH -> {
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "en-US")
+                        putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf("en-GB", "en"))
+                    }
+                    ConversationLanguage.AUTO -> {
+                        // Support bilingual recognition
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "bn-BD")
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "bn-BD")
+                        putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf("en-US", "en-GB", "bn-IN"))
+                    }
+                }
             }
             speechRecognizer?.startListening(intent)
         } catch (e: Exception) {
@@ -158,5 +232,6 @@ class SpeechManager(private val context: Context) {
         tts?.stop()
         tts?.shutdown()
         speechRecognizer?.destroy()
+        onSpeechDoneCallback = null
     }
 }

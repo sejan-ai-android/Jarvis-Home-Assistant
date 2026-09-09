@@ -12,6 +12,26 @@
 
 ---
 
+## 📦 Pre-Built APK Downloads
+
+Pre-built, signed APKs are compiled and accessible directly in the project file tree:
+
+| File Location | Description | Build Size |
+| :--- | :--- | :--- |
+| **[`/jarvis-assist.apk`](./jarvis-assist.apk)** | **Primary APK** placed directly in the project root | ~23 MB |
+| **[`/releases/jarvis-assist-v1.0.apk`](./releases/jarvis-assist-v1.0.apk)** | Release archive build | ~23 MB |
+| **[`/app-debug.apk`](./app-debug.apk)** | Debug build binary | ~23 MB |
+
+### How to Download from Google AI Studio:
+1. Locate the **File Explorer** panel on the left sidebar of AI Studio.
+2. Click on **`jarvis-assist.apk`** in the root directory.
+3. Click the **Download** option to save the APK directly to your computer or Android device.
+
+### In-App APK Export:
+Inside the running J.A.R.V.I.S. application, tap the **Download (📥)** button on the top app bar to open the **APK Export Package** dialog. From there, you can export and share the APK via Android's native ShareSheet or copy the file path.
+
+---
+
 ## ✦ Key Features
 
 ### 1. Natural Language & Vocal Assistant

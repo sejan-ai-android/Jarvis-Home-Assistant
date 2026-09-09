@@ -80,7 +80,13 @@ data class ChatMessage(
     val actionType: String? = null,
     val actionSummary: String? = null,
     val isAudioPlaying: Boolean = false
-)
+) {
+    val formattedTimestamp: String
+        get() {
+            val sdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+            return sdf.format(java.util.Date(timestamp))
+        }
+}
 
 enum class MessageSender {
     USER,
