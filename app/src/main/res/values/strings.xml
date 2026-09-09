@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">JARVIS AI Assistant</string>
+    <string name="assistant_title">J.A.R.V.I.S.</string>
+    <string name="assistant_subtitle">Just A Rather Very Intelligent System</string>
+    <string name="status_online">SYSTEMS NOMINAL</string>
+    <string name="tab_command">Command</string>
+    <string name="tab_smart_home">Smart Home</string>
+    <string name="tab_schedule">Schedule</string>
+    <string name="tab_projects">Projects</string>
+    <string name="tab_biometrics">Biometrics</string>
+</resources>

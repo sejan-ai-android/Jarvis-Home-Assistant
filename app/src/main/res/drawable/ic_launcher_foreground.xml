@@ -1,0 +1,45 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer glowing ring -->
+    <path
+        android:strokeColor="#00F0FF"
+        android:strokeWidth="2.5"
+        android:fillColor="#00000000"
+        android:pathData="M54,54m-27,0a27,27 0 1,0 54,0a27,27 0 1,0 -54,0" />
+
+    <!-- Segmented arc reactor ring -->
+    <path
+        android:strokeColor="#FFB800"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:pathData="M54,54m-21,0a21,21 0 1,0 42,0a21,21 0 1,0 -42,0" />
+
+    <!-- Radiating power spokes (6 spokes) -->
+    <path
+        android:strokeColor="#00F0FF"
+        android:strokeWidth="2"
+        android:pathData="M54,33L54,39 M54,69L54,75 M35.8,43.5L41,46.5 M67,61.5L72.2,64.5 M35.8,64.5L41,61.5 M67,46.5L72.2,43.5" />
+
+    <!-- Inner reactor core ring -->
+    <path
+        android:strokeColor="#00F0FF"
+        android:strokeWidth="1.5"
+        android:fillColor="#1A00F0FF"
+        android:pathData="M54,54m-12,0a12,12 0 1,0 24,0a12,12 0 1,0 -24,0" />
+
+    <!-- Central energy nexus core -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,49 L58.3,56.5 L49.7,56.5 Z" />
+
+    <path
+        android:strokeColor="#FFB800"
+        android:strokeWidth="1.2"
+        android:fillColor="#00000000"
+        android:pathData="M54,47 L60,57.5 L48,57.5 Z" />
+</vector>
+
